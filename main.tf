@@ -8,12 +8,14 @@ resource "aws_security_group" "app_sg" {
   description = "allow ssh,http in"
   ingress {
     description      = "ssh"
+    from_port        = 22
     to_port          = 22
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
   }
   ingress {
     description      = "http alt"
+    from_port        = 8080
     to_port          = 8080
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
@@ -28,6 +30,7 @@ resource "aws_security_group" "pkg_sg" {
   description = "allow ssh in"
   ingress {
     description      = "ssh"
+    from_port        = 22
     to_port          = 22
     protocol         = "tcp"
     cidr_blocks      = ["0.0.0.0/0"]
