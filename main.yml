@@ -1,24 +1,11 @@
 ---
-- name: includes vars
+- name: generates dynamic inventory and checks ECR
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: includes vars from a vault file
-      include_vars: file=vars.vault
-      no_log: true
-      tags: vars
-
-- name: generates dynamic inventory
-  hosts: localhost
-  gather_facts: false
-  module_defaults:
-    group/aws:
-      aws_access_key: "{{aws_access_key}}"
-      aws_secret_key: "{{aws_secret_key}}"
-      region: "us-east-1"
-  tasks:
-    - name: checks app instances facts
+    - name: checks aws instances facts
       ec2_instance_facts:
+        region: "us-east-1"
         filters:
           instance-state-name: running
       register: aws_facts
@@ -32,37 +19,85 @@
       loop: "{{aws_facts.instances}}"
       loop_control:
         label: "{{item.tags.Name}} ansible_host={{item.public_ip_address}}"
+    - name: checks ECR password
+      shell: aws ecr get-login-password --region us-east-1
+      register: aws_ecr_password
+      no_log: true
 
-- name: checks pkg instances
+- name: checks docker package and service and some facts
+  hosts: app,pkg
+  gather_facts: false
+  become: true
+  tasks:
+    - name: checks required packages
+      apt:
+        name: "{{item}}"
+        state: present
+        update_cache: true
+      loop:
+        - docker.io
+        - python3-docker
+    - name: checks docker service
+      service:
+        name: docker
+        state: started
+    - name: sets facts
+      set_fact:
+        aws_ecr_username: AWS
+        aws_ecr_repo_uri: "000000000000.dkr.ecr.us-east-1.amazonaws.com/testapp"
+        aws_ecr_password: "{{hostvars.localhost.aws_ecr_password.stdout}}"
+      no_log: true
+
+- name: checks builder
   hosts: pkg
   become: true
   gather_facts: false
+  vars:
+    build_dir_path: /var/tmp/build
+    dockerfile_dst_path: "{{build_dir_path}}/Dockerfile"
   tasks:
-    - name: checks required packages
-      apt: name={{item}} state=present update_cache=true
-      loop:
-        - maven
-        - git
-    - name: checks git repo
-      git:
-        repo: https://github.com/boxfuse/boxfuse-sample-java-war-hello.git
-        dest: /var/tmp/boxfuse
-      register: repo_check
-    - name: build the artifact
-      shell: mvn package
-      args:
-          chdir: /var/tmp/boxfuse
-      when: repo_check is changed
+    - name: checks build dir
+      file:
+        state: directory
+        dest: "{{build_dir_path}}"
+    - name: checks Dockerfile
+      copy:
+        src: Dockerfile
+        dest: "{{dockerfile_dst_path}}"
+    - name: logins to ECR
+      docker_login:
+        username: "{{aws_ecr_username}}"
+        registry: "{{aws_ecr_repo_uri}}"
+        password: "{{aws_ecr_password}}"
+    - name: checks container image
+      docker_image:
+        name: "{{aws_ecr_repo_uri}}"
+        build:
+          path: "{{build_dir_path}}"
+        source: build
+        state: present
+        push: true
 
-- name: checks app instances
+- name: checks app runner
   hosts: app
   become: true
   gather_facts: false
+  vars:
+    cont_cmd: /opt/tomcat/bin/catalina.sh run
+    cont_port_list: ["8080:8080"]
   tasks:
-    - name: checks required packages
-      apt: name={{item}} state=present update_cache=true
-      loop:
-        - tomcat9
-
-
-
+    - name: logins to ECR
+      docker_login:
+        username: "{{aws_ecr_username}}"
+        registry: "{{aws_ecr_repo_uri}}"
+        password: "{{aws_ecr_password}}"
+    - name: checks app container
+      docker_container:
+        name: app
+        image: "{{aws_ecr_repo_uri}}"
+        command: "{{cont_cmd}}"
+        ports: "{{cont_port_list}}"
+        state: started
+    - name: prints info
+      debug:
+        msg: "CHECKME: http://{{inventory_hostname}}:8080"
