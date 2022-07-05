@@ -1,0 +1,68 @@
+---
+- name: includes vars
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: includes vars from a vault file
+      include_vars: file=vars.vault
+      no_log: true
+      tags: vars
+
+- name: generates dynamic inventory
+  hosts: localhost
+  gather_facts: false
+  module_defaults:
+    group/aws:
+      aws_access_key: "{{aws_access_key}}"
+      aws_secret_key: "{{aws_secret_key}}"
+      region: "us-east-1"
+  tasks:
+    - name: checks app instances facts
+      ec2_instance_facts:
+        filters:
+          instance-state-name: running
+      register: aws_facts
+    - name: adds aws instances to hosts group
+      add_host:
+        hostname: "{{item.public_ip_address}}"
+        groups: "{{item.tags.Group}}"
+        node_name: "{{item.tags.Name}}"
+        ansible_ssh_user: ubuntu
+        ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+      loop: "{{aws_facts.instances}}"
+      loop_control:
+        label: "{{item.tags.Name}} ansible_host={{item.public_ip_address}}"
+
+- name: checks pkg instances
+  hosts: pkg
+  become: true
+  gather_facts: false
+  tasks:
+    - name: checks required packages
+      apt: name={{item}} state=present update_cache=true
+      loop:
+        - maven
+        - git
+    - name: checks git repo
+      git:
+        repo: https://github.com/boxfuse/boxfuse-sample-java-war-hello.git
+        dest: /var/tmp/boxfuse
+      register: repo_check
+    - name: build the artifact
+      shell: mvn package
+      args:
+          chdir: /var/tmp/boxfuse
+      when: repo_check is changed
+
+- name: checks app instances
+  hosts: app
+  become: true
+  gather_facts: false
+  tasks:
+    - name: checks required packages
+      apt: name={{item}} state=present update_cache=true
+      loop:
+        - tomcat9
+
+
+

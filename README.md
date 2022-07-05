@@ -8,3 +8,16 @@
 - «Сборочный» инстанс собирает Java приложение.
 - «Продовый» инстанс запускает приложение.
 - В качестве репозитория использовать нативный сервис облачного провайдера.
+
+
+### Pre
+
+
+    $ ansible-vault create vars.vault
+    
+
+### Run
+
+
+    $ terraform apply
+    $ ansible-playbook main.yml --ask-vault-pass
