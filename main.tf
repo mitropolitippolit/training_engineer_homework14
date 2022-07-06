@@ -1,7 +1,7 @@
 resource "aws_instance" "pkg01" {
-  ami = var.ami
-  instance_type = var.type
-  key_name = var.key_pair_name
+  ami             = var.ami
+  instance_type   = var.type
+  key_name        = var.key_pair_name
   security_groups = var.app_srv_sg_list
   tags = {
     Name  = "pkg01"
@@ -17,9 +17,9 @@ resource "aws_instance" "pkg01" {
 }
 
 resource "aws_instance" "app01" {
-  ami = var.ami
-  instance_type = var.type
-  key_name = var.key_pair_name
+  ami             = var.ami
+  instance_type   = var.type
+  key_name        = var.key_pair_name
   security_groups = var.app_srv_sg_list
   tags = {
     Name  = "app01"

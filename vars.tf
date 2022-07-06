@@ -12,34 +12,34 @@ variable "ami" {
 
 variable "type" {
   description = "aws instance type"
-  type = string
-  default = "t2.micro"
+  type        = string
+  default     = "t2.micro"
 }
 
 variable "key_pair_name" {
   description = "aws key pair name"
-  type = string
+  type        = string
 }
 
 variable "app_srv_sg_list" {
   description = "aws app instance security groups list"
-  type = list
-  default = ["app_srv_sg"]
+  type        = list
+  default     = ["app_srv_sg"]
 }
 
 variable "pkg_srv_sg_list" {
   description = "aws pkg instance security groups list"
-  type = list
-  default = ["pkg_srv_sg"]
+  type        = list
+  default     = ["pkg_srv_sg"]
 }
 
 variable "ssh_priv_key_file_path" {
   description = "private key file path"
-  type = string
-  sensitive = true
+  type        = string
+  sensitive   = true
 }
 
 variable "ssh_user_name" {
   description = "ssh connection user name"
-  type = string
+  type        = string
 }
